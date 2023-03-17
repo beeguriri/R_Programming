@@ -149,6 +149,9 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+#무시할 파일
 data/
+*.Rhistory
+works.Rproj
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,visualstudiocode,r
