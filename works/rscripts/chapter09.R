@@ -136,8 +136,9 @@ goodsAll
 dbDisconnect(conn)
 
 
-
-
+#######################################
+#2.1 토픽 분석 => ver.3.6.3에서 수행
+#######################################
 # 실습: 한글 사전과 텍스트 마이닝 관련 패키지 설치
 install.packages("Sejong")
 install.packages("wordcloud")
@@ -156,6 +157,7 @@ install.packages("https://cran.rstudio.com/bin/windows/contrib/3.4/KoNLP_0.80.1.
 #install.packages("KoNLP")
 #install.packages("KoNLP", dependencies = TRUE, INSTALL_opts = "--no-lock")
 
+library(rJava)
 library(KoNLP) #Korean Natural Language Processing
 library(tm)
 library(wordcloud)
@@ -177,9 +179,11 @@ buildDictionary(ext_dic = "sejong", user_dic = user_dic)
 
 
 # 실습: R 제공 함수로 단어 추출하기  
-paste(extractNoun('김진성은 많은 사람과 소통을 위해서 소셜네트워크에 가입하였습니다.'),
-      collapse = " ")
-
+# sejong 사전에 등록 된 신규 단어 테스트
+paste(extractNoun('김진성은 많은 사람과 소통을 위해서 소셜네트워크에 가입하였습니다.'), collapse = " ")
+#extractNoun() : 명사 추출
+#collapse : 추출한 명사들을 공백으로 연결
+#paste() : 공백으로 분리된 단어를 하나의 스트링으로 합침
 
 
 # 실습: 단어 추출을 위한 사용자 함수 정의하기 
@@ -189,7 +193,7 @@ exNouns <- function(x) { paste(extractNoun(as.character(x)), collapse = " ") }
 
 # 단계 2: exNouns() 함수를 이용하여 단어 추출 
 facebook_nouns <- sapply(facebook_data, exNouns)
-facebook_nouns[1]
+facebook_nouns[1] # 추출된 단어의 첫 줄 보기
 
 
 # 실습: 추출된 단어를 대상으로 전처리하기 
@@ -213,11 +217,10 @@ inspect(myCorpusPrepro[1:5])
 
 # 실습: 단어 선별(2 ~ 8 음절 사이 단어 선택)하기 
 # 단계 1: 전처리된 단어집에서 2 ~ 8 음절 단어 대상 선정
-myCorpusPrepro_term <-
-  TermDocumentMatrix(myCorpusPrepro, 
-                     control = list(wordLengths = c(4, 16)))
+# 2음절 : 4byte
+myCorpusPrepro_term <- TermDocumentMatrix(myCorpusPrepro, control = list(wordLengths = c(4, 16)))
 myCorpusPrepro_term
-
+str(myCorpusPrepro_term) #matrix
 # 단계 2: matrix 자료구조를 data.frame 자료구조로 변경
 myTerm_df <- as.data.frame(as.matrix(myCorpusPrepro_term))
 dim(myTerm_df)
@@ -225,6 +228,7 @@ dim(myTerm_df)
 
 # 실습: 단어 출현 빈도수 구하기 
 wordResult <- sort(rowSums(myTerm_df), decreasing = TRUE)
+#빈도수 높은 상위 10개 단위 보기
 wordResult[1:10]
 
 
@@ -242,23 +246,22 @@ myStopwords = c(stopwords('english'), "사용", "하기")
 myCorpusPrepro <- tm_map(myCorpusPrepro, removeWords, myStopwords)
 
 #단계 2: 단어 선별과 평서문 변환
-myCorpusPrepro_term <-
-  TermDocumentMatrix(myCorpusPrepro,
-                     control = list(wordLengths = c(4, 16)))
+#전처리된 단어집에서 2 ~ 8 음절 단어 대상 선정
+myCorpusPrepro_term <- TermDocumentMatrix(myCorpusPrepro, control = list(wordLengths = c(4, 16)))
+#matrix 자료구조를 data.frame 자료구조로 변경
 myTerm_df <- as.data.frame(as.matrix(myCorpusPrepro_term))
 
 
 # 단계 3: 단어 출현 빈도수 구하기 
 wordResult <- sort(rowSums(myTerm_df), decreasing = TRUE)
-wordResult[1:10]
-
+wordResult[1:10] #위쪽에서 "사용" 빈도수 29였으나, 단어 제거후 출현 빈도수에 "사용" 없는 것을 확인
 
 
 # 실습: 단어 구름에 디자인(빈도수, 색상, 위치, 회전 등) 적용하기 
 # 단계 1: 단어 이름과 빈도수로 data.frame 생성
 myName <- names(wordResult)
 word.df <- data.frame(word = myName, freq = wordResult)
-str(word.df)
+str(word.df) #$ word, $ freq 확인
 
 # 단계 2: 단어 색상과 글꼴 지정
 pal <- brewer.pal(12, "Paired")
@@ -267,163 +270,13 @@ pal <- brewer.pal(12, "Paired")
 wordcloud(word.df$word, word.df$freq, scale = c(5, 1), 
           min.freq = 3, random.order = F, 
           rot.per = .1, colors = pal, family = "malgun")
+#scale: 비율크기
+#min.freq : 최소 빈도수, 
+#random.order = F 랜덤순서(단어위치)
 
-
-
-# 실습: 한글 연관어 분석을 위한 패킺 설치와 메모리 로딩 
-# 단계 1: 텍슽 파일 가져오기 
-marketing <- file("C:/Rwork/Part-II/marketing.txt", encoding = "UTF-8")
-marketing2 <- readLines(marketing)
-close(marketing)
-head(marketing2)
-
-# 단계 2: 줄 단위 단어 추출
-lword <- Map(extractNoun, marketing2)
-length(lword)
-lword <- unique(lword)
-length(lword)
-
-
-# 단계 3: 중복 단어 제거와 추출 단어 확인
-lword <- sapply(lword, unique)
-length(lword)
-lword
-
-
-# 실습: 연관어 분석을 위한 전처리하기 
-# 단계 1: 단어 필터링 함수 정의
-filter1 <- function(x) {
-  nchar(x) <= 4 && nchar(x) >= 2 && is.hangul(x)
-}
-
-filter2 <- function(x) { Filter(filter1, x) }
-
-# 단계 2: 줄 단위로 추출된 단어 전처리
-lword <- sapply(lword, filter2)
-lword
-
-
-# 실습: 필터링 간단 예문 살펴보기 
-# 단계 1: vector 이용 list 객체 생성
-word <- list(c("홍길동", "이순", "만기", "김"),
-             c("대한민국", "우리나라대한민구", "한국", "resu"))
-class(word)
-
-# 단계 2: 단어 필터링 함수 정의(길이 2 ~ 4 사이 한글 단어 추출) 
-filter1 <- function(x) {
-  nchar(x) <= 4 && nchar(x) >= 2 && is.hangul(x)
-}
-
-filter2 <- function(x) {
-  Filter(filter1, x)
-}
-
-# 단계 3: 함수 적용 list 객체 필터링
-filterword <- sapply(word, filter2)
-filterword
-
-
-
-
-# 실습: 트랜잭션 생성하기 
-# 단계 1: 연관분석을 위한 패키지 설치와 로딩
-install.packages("arules")
-library(arules)
-
-# 단계 2: 트랜잭션 생성
-wordtran <- as(lword, "transactions")
-wordtran
-
-
-
-# 싨브: 단어 간 연관규칙 발견하기 
-# 단계 1: 연관규칙 발견
-tranrules <- apriori(wordtran, 
-                     parameter = list(supp = 0.25, conf = 0.05))
-
-# 단계 2: 연관규칙 생성 결과보기 
-inspect(tranrules)
-
-
-# 실습: 연관규칙을 생성하는 간단한 예문 살펴보기 
-# 단계 1: Adult 데이터 셋 메모리 로딩
-data("Adult")
-Adult
-str(Adult)
-dim(Adult)
-inspect(Adult)
-
-# 단계 2: 특정 항목의 내용을 제외한 itermsets 수 발견
-apr1 <- apriori(Adult,
-                parameter = list(support = 0.1, target = "frequent"),
-                appearance = list(none = 
-                                    c("income=small", "income=large"),
-                                  default = "both"))
-
-apr1
-
-inspect(apr1)
-
-
-# 단계 3: 특정 항목의 내용을 제외한 rules 수 발견
-apr2 <- apriori(Adult, 
-                parameter = list(support = 0.1, target = "rules"), 
-                appearance = list(none = 
-                                    c("income=small", "income=large"),
-                                  default = "both"))
-apr2
-
-
-# 단계 4: 지지도와 신뢰도 비율을 높일 경우
-apr3 <- apriori(Adult, 
-                parameter = list(supp = 0.5, conf = 0.9, target = "rules"),
-                appearance = list(none =
-                                    c("income=small", "income=large"),
-                                  default = "both"))
-apr3
-
-
-
-# 실습: inspect() 함수를 사용하는 간단 예문 보기 
-data(Adult)
-rules <- apriori(Adult)
-inspect(rules[10])
-
-
-
-# 연관어 시각화하기
-# 단계 1: 연관단어 시각화를 위해서 자료구조 변경 
-rules <- labels(tranrules, ruleSep = " ")
-
-rules
-
-
-# 단계 2: 문자열로 묶인 연관 단어를 행렬구조로 변경 
-rules <- sapply(rules, strsplit, " ", USE.NAMES = F)
-rules
-
-# 단계 3: 행 단위로 묶어서 matrix로 변환
-rulemat <- do.call("rbind", rules)
-
-class(rulemat)
-
-# 단계 4: 연관어 시각화를 위한 igraph 패키지 설치와 로딩
-install.packages("igraph")
-library(igraph)
-
-# 단계 5: edgelist 보기 
-ruleg <- graph.edgelist(rulemat[c(12:59), ], directed = F)
-ruleg
-
-
-# 단계 6: edgelist 시각화 
-plot.igraph(ruleg, vertex.label = V(ruleg)$name, 
-            vertex.label.cex = 1.2, vertext.label.color = 'black',
-            vertex.size = 20, vertext.color = 'green',
-            vertex.frame.co.or = 'blue')
-
-
-
+#######################################
+#3. 실시간 뉴스 수집과 분석 => ver.3.6.3에서 수행
+#######################################
 # 실습: 웹 문서 요청과 파싱 관련 패키지 설치 및 로딩
 install.packages("httr")
 library(httr)
@@ -448,31 +301,33 @@ news
 
 # 실습: 자료 전처리하기 
 # 단계 1: 자료 전처리 - 수집한 문서를 대상으로 불용어 제거
-news_pre <- gsub("[\r\n\t]", ' ', news)
-news_pre <- gsub('[[:punct:]]', ' ', news_pre)
-news_pre <- gsub('[[:cntrl:]]', ' ', news_pre)
+news_pre <- gsub("[\r\n\t]", ' ', news) #이스케이프 제거
+news_pre <- gsub('[[:punct:]]', ' ', news_pre) #문장부호제거
+news_pre <- gsub('[[:cntrl:]]', ' ', news_pre) #특수문자제거
 # news_pre <- gsub('\\d+', ' ', news_pre)   # corona19(covid19) 때문에 숫자 제거 생략
-news_pre <- gsub('[a-z]+', ' ', news_pre)
-news_pre <- gsub('[A-Z]+', ' ', news_pre)
-news_pre <- gsub('\\s+', ' ', news_pre)
+news_pre <- gsub('[a-z]+', ' ', news_pre) #소문자 제거
+news_pre <- gsub('[A-Z]+', ' ', news_pre) #대문자 제거
+news_pre <- gsub('\\s+', ' ', news_pre) #2개이상 공백 -> 1개로 교체
 
 news_pre
 
 # 단계 2: 기사와 관계 없는 'TODAY', '검색어 순위' 등의 내용은 제거 
-news_data <- news_pre[1:59]
+news_data <- news_pre[1:30] #데이터가 원래 32개밖에 없는데...
 news_data
 
 
 # 실습: 수집한 자료를 파일로 저장하고 읽기
-setwd("C:/Rwork/output")
-write.csv(news_data, "nes_data.csv", quote = F)
+setwd("D:/HJ/R_Programming/works/output")
+write.csv(news_data, "news_data.csv", quote = F) #행이름 저장
 
 news_data <- read.csv("news_data.csv", header = T, stringsAsFactors = F)
 str(news_data)
 
+#칼럼명 지정
 names(news_data) <- c("no", "news_text")
 head(news_data)
 
+# news 텍스트 벡터 생성
 news_text <- news_data$news_text
 news_text
 
@@ -487,7 +342,7 @@ buildDictionary(ext_dic = 'sejong', user_dic = user_dic)
 exNouns <- function(x) { paste(extractNoun(x), collapse = " ")}
 
 # 단계 2: exNouns()  함수를 이용하어 단어 추출
-news_nouns <- sapply(news_text, exNouns)
+news_nouns <- sapply(news_text, exNouns) #NA포함되있으면 안되서 위에서 row 수 줄여줌
 news_nouns
 
 # 단계 3: 추출 결과 확인
@@ -517,8 +372,6 @@ wordResult <- sort(rowSums(tdm.df), decreasing = TRUE)
 wordResult[1:10]
 
 
-
-
 # 실습: 단어 구름 생성
 # 단계 1: 패키지 로딩과 단어 이름 추출
 library(wordcloud)
@@ -531,8 +384,156 @@ df <- data.frame(word = myNames, freq = wordResult)
 head(df)
 
 # 단계 3: 단어 구름 생성
-pal <- brewer.pas(12, "Paired")
+pal <- brewer.pal(12, "Paired")
 wordcloud(df$word, df$freq, min.freq = 2,
           random.order = F, scale = c(4, 0.7),
-          rot.per = .1, colors = pas, family = "malgun")
+          rot.per = .1, colors = pal, family = "malgun")
 
+
+#######################################
+#2.2 연관어 분석 => 
+# KoNLP는 ver. 3.6.3에서 수행
+# p.315~ ver.4.2.2에서 수행
+#######################################
+# 실습: 한글 연관어 분석을 위한 패킺 설치와 메모리 로딩 
+# 단계 1: 텍슽 파일 가져오기 
+marketing <- file("C:/Rwork/Part-II/marketing.txt", encoding = "UTF-8")
+marketing2 <- readLines(marketing)
+close(marketing)
+head(marketing2)
+
+# 단계 2: 줄 단위 단어 추출
+lword <- Map(extractNoun, marketing2)
+length(lword) #length : 472
+#중복단어 제거(전체 대상)
+lword <- unique(lword)
+length(lword) #length : 353
+
+
+# 단계 3: 중복 단어 제거와 추출 단어 확인
+#중복단어 제거(줄단위 대상)
+lword <- sapply(lword, unique)
+length(lword) #length : 353 //뭐가 다른지...
+lword # 추출된 단어 확인
+
+
+# 실습: 연관어 분석을 위한 전처리하기 
+# 단계 1: 단어 필터링 함수 정의
+#문자길이 2~4인 단어만 필더링
+filter1 <- function(x) {
+  nchar(x) <= 4 && nchar(x) >= 2 && is.hangul(x)
+}
+#filter1 함수적용하기 위하여 filter2() 정의
+filter2 <- function(x) { Filter(filter1, x) }
+
+# 단계 2: 줄 단위로 추출된 단어 전처리
+lword <- sapply(lword, filter2)
+lword
+
+
+# 실습: 필터링 간단 예문 살펴보기 
+# 단계 1: vector 이용 list 객체 생성
+word <- list(c("홍길동", "이순", "만기", "김"),
+             c("대한민국", "우리나라대한민구", "한국", "resu"))
+class(word) #data type : list
+
+# 단계 2: 단어 필터링 함수 정의(길이 2 ~ 4 사이 한글 단어 추출) 
+filter1 <- function(x) {
+  nchar(x) <= 4 && nchar(x) >= 2 && is.hangul(x)
+}
+
+filter2 <- function(x) {
+  Filter(filter1, x)
+}
+
+# 단계 3: 함수 적용 list 객체 필터링
+# list에 추가되었던 단어 중에 1글자이하, 5글자 이상, 영문 제거됨을 확인
+filterword <- sapply(word, filter2)
+filterword
+
+
+# 실습: 트랜잭션 생성하기 
+# 단계 1: 연관분석을 위한 패키지 설치와 로딩
+install.packages("arules")
+library(arules)
+
+# 단계 2: 트랜잭션 생성
+# 중복데이터가 있으면 에러 발생!
+wordtran <- as(lword, "transactions")
+wordtran
+
+
+# 실습: 단어 간 연관규칙 발견하기 
+# 단계 1: 연관규칙 발견
+tranrules <- apriori(wordtran, 
+                     parameter = list(supp = 0.25, conf = 0.05))
+#옵션 생략시 기본값 supp = 0.1, conf = 0.8, maxlen = 10
+
+# 단계 2: 연관규칙 생성 결과보기 
+inspect(tranrules) #59개 연관 규칙 생성
+
+
+# 실습: 연관규칙을 생성하는 간단한 예문 살펴보기 
+# 단계 1: Adult 데이터 셋 메모리 로딩
+data("Adult")
+Adult
+str(Adult)
+dim(Adult)
+inspect(Adult)
+
+# 단계 2: 특정 항목의 내용을 제외한 itermsets 수 발견
+apr1 <- apriori(Adult,
+                parameter = list(support = 0.1, target = "frequent"),
+                appearance = list(none = c("income=small", "income=large"), default = "both"))
+#income=small, income=large 포함하지 않도록 지정
+#target = "frequent" : itemset수 발견
+apr1 #set of 2066 itemsets
+inspect(apr1)
+
+
+# 단계 3: 특정 항목의 내용을 제외한 rules 수 발견
+apr2 <- apriori(Adult, 
+                parameter = list(support = 0.1, target = "rules"), 
+                appearance = list(none = c("income=small", "income=large"), default = "both"))
+#income=small, income=large 포함하지 않도록 지정
+#target = "rules" : rules수 발견
+apr2 #set of 4993 rules 
+
+# 단계 4: 지지도와 신뢰도 비율을 높일 경우
+apr3 <- apriori(Adult, 
+                parameter = list(supp = 0.5, conf = 0.9, target = "rules"),
+                appearance = list(none = c("income=small", "income=large"), default = "both"))
+apr3 #set of 52 rules 
+
+# 실습: inspect() 함수를 사용하는 간단 예문 보기 
+data(Adult)
+rules <- apriori(Adult)
+inspect(rules[10]) #10번째 연관규칙 결과 보기
+inspect(rules[1:10]) #1~10번째 연관규칙 결과 보기
+
+# 연관어 시각화하기
+# 단계 1: 연관단어 시각화를 위해서 자료구조 변경 
+rules <- labels(tranrules, ruleSep = " ")
+rules
+
+# 단계 2: 문자열로 묶인 연관 단어를 행렬구조로 변경 
+rules <- sapply(rules, strsplit, " ", USE.NAMES = F)
+rules
+
+# 단계 3: 행 단위로 묶어서 matrix로 변환
+rulemat <- do.call("rbind", rules)
+class(rulemat) #[1] "matrix" "array" 
+
+# 단계 4: 연관어 시각화를 위한 igraph 패키지 설치와 로딩
+install.packages("igraph")
+library(igraph)
+
+# 단계 5: edgelist 보기 
+ruleg <- graph.edgelist(rulemat[c(12:59), ], directed = F)
+ruleg
+
+# 단계 6: edgelist 시각화 
+plot.igraph(ruleg, vertex.label = V(ruleg)$name, 
+            vertex.label.cex = 1.2, vertext.label.color = 'black',
+            vertex.size = 20, vertext.color = 'green',
+            vertex.frame.co.or = 'blue')
