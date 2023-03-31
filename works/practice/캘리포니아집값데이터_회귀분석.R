@@ -118,21 +118,40 @@ head(cleaned_housing)
 
 # 3. 데이터를 분리 -> 학습과 검증
 set.seed(42) #임의랜덤 고정해놓고 경향성 확인 후 -> 주석달고 고정 해제
-# 원데이터 복원 가능한지 확인하면서 작업
+sample <- sample.int(n = nrow(cleaned_housing), size = floor(.8*nrow(cleaned_housing)), replace = F)
+train <- cleaned_housing[sample, ] #just the samples
+test  <- cleaned_housing[-sample, ] #everything but the samples
 
-# => 결과물 : 모델
-
-
-
+# 분리된 데이터가 전체 데이터를 반영하고 있는지 확인
+nrow(train) + nrow(test) == nrow(cleaned_housing)
 
 ## 예측모델 생성 및 평가
 # 선형 모형 테스트를 위한 3개 변수 (->p값 낮은거 들고오든가,.. )
+glm_house = glm(median_house_value~median_income+mean_rooms+population, data=cleaned_housing)
+
 # 과적합(overfit) : 테스트케이스는 100% 적합이나 실제 케이스 넣으면 맞지않음
 # 과적합 막기 위해 교차검증함 (학습데이터와 검증데이터), 랜덤 횟수 조정
 # glm : 일반적인 선형 모델을 만들어 주세요
+k_fold_cv_error = cv.glm(cleaned_housing , glm_house, K=5)
+
 # delta값 : 오차의 평균 => 판단이 힘들다
+k_fold_cv_error$delta
+
 # 루트를 씌워서 값을 떨어트림 +-8만불 정도의 차이는 보일 것 같다
+glm_cv_rmse = sqrt(k_fold_cv_error$delta)[1]
+glm_cv_rmse
+
 # 오차를 줄여야 함 => "단순선형회귀를 베이스"로 해서 개선해야함
+glm_house$coefficients
+## (Intercept) median_income    mean_rooms    population
+##  206855.817     82608.959     -9755.442     -3948.293
+
+# => 결과물 : 모델
+# 분석을 통해 소득 중앙값(`median_income`)이 주택 가격(`median_house_value`)에 가장 큰 영향을 미친다고 판단할 수 있습니다.
+
+
+
+
 
 # 머신러닝 제1목표 : 베이스라인 설정 (단순선형회귀의 rmse값이 준수)
 ## => 데이터에 대한 인상

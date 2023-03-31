@@ -1,7 +1,9 @@
 # Chapter15 지도학습(기계학습)
-# 정형데이터 -> 회기/분류
+# 정형데이터 -> 회귀/분류
 getwd()
 
+##############################################
+### 0. 베이스라인
 ## 실습1: 단순 선형 회귀분석 수행
 # 단계 1: 데이터 가져오기 (전처리 NA)
 product <- read.csv("./data/product.csv", header = TRUE, fileEncoding = "euc-kr")
@@ -52,71 +54,25 @@ summary(result.lm)
 # F-statistic:   374 on 1 and 262 DF,  p-value: < 2.2e-16
 
 ##############################################
+### 1. 의사결정 트리
+## 전처리/후처리가 필요하지 않음
+## 학습을 어떻게 시키는가? / 시각적으로 어떻게 보나??
+## 디시전트리 key point: 결과가 아니라 해석
 
-## 실습3: 로지스틱
-# 실습: 날씨 관련 요인 변수로 비(rain) 유뮤 예측
-# 단계 1: 데이터 가져오기 
-weather = read.csv("C:/Rwork/Part-IV/weather.csv", stringsAsFactors = F)
-dim(weather)
-head(weather)
-str(weather)
-
-# 단계 2: 변수 선택과 더비 벼수 생성
-weather_df <- weather[ , c(-1, -6, -8, -14)]
-str(weather_df)
-
-weather_df$RainTomorrow[weather_df$RainTomorrow == 'Yes'] <- 1
-weather_df$RainTomorrow[weather_df$RainTomorrow == 'No'] <- 0
-weather_df$RainTomorrow <- as.numeric(weather_df$RainTomorrow)
-head(weather_df)
-
-# 단계 3: 학습데이터와 검정데이터 생성(7:3 비율)
-idx <- sample(1:nrow(weather_df), nrow(weather_df) * 0.7)
-train <- weather_df[idx, ]
-test <- weather_df[-idx, ]
-
-# 단계 4: 로지스틱 회귀모델 생성
-weather_model <- glm(RainTomorrow ~ ., data = train, family = 'binomial')
-weather_model
-summary(weather_model)
-
-
-# 단계 5: 로지스틱 회귀모델 예측치 생성
-pred <- predict(weather_model, newdata = test, type = "response")
-pred
-
-# 시그모이드 함수
-result_pred <- ifelse(pred >= 0.5, 1, 0)
-result_pred
-
-table(result_pred)
-
-
-# 단계 6: 모델 평가 - 분류정확도 계산
-table(result_pred, test$RainTomorrow)
-
-# 단계 7: ROC Curve를 이용한 모델 평가
-install.packages("ROCR")
-library(ROCR)
-
-pr <- prediction(pred, test$RainTomorrow)
-prf <- performance(pr, measure = "tpr", x.maeasure = "fpr")
-plot(prf)
-
-
-
-# 실습: 의사결정 트리 생성: ctree() 함수 이용 
+# 실습2 : 의사결정 트리 생성: ctree() 함수 이용 
 # 단계 1: party 패키지 설치 
 install.packages("party")
 library(party)
 
 # 단계 2: airquality 데이터 셋 로딩
-#install.packages("datasets")
 library(datasets)
 str(airquality)
+View(airquality)
 
-# 단계 3: formula 생성
+# 단계 3: formula 생성 (y~x)
+# 특 : 결측처리 안함
 formula <- Temp ~ Solar.R + Wind + Ozone
+# Temp를 결정하는 요인 : Solar.R, Wind, Ozone
 
 # 단계 4: 분류모델 생성 - formula를 이용하여 분류모델 생성
 air_ctree <- ctree(formula, data = airquality)
@@ -124,15 +80,20 @@ air_ctree
 
 # 단계 5: 분류분석 결과
 plot(air_ctree)
+# p : 유의검정값
+# Ozon이 압도적으로 제일 중요하다 (오존의 값 37을 기준으로 두짝으로 나누어짐)
+# 그래프를 설명할때는 제일 아래 노드부터 위로 올라감
 
 
-
+##############################################
+### 참고 : 분류의 대표적인모델 => iris, 손글씨 분류 모델
+colnames(iris)
 # 실습: 학습데이터와 검정데이터 샘플링으로 분류분석 수행
 # 단계 1: 학습데이터와 검정데이터 샘플링
-#set.seed(1234)
-idx <- sample(1:nrow(iris), nrow(iris) * 0.7)
-train <- iris[idx, ]
-test <- iris[-idx, ]
+set.seed(42) # 시드값 고정 : 랜덤값 임의고정
+idx <- sample(1:nrow(iris), nrow(iris) * 0.7) # 7:3으로 인덱스 분류
+train <- iris[idx, ] # 학습용
+test <- iris[-idx, ] # 검증용
 
 # 단계 2: formula(공식) 생성
 formula <- Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width
@@ -144,6 +105,10 @@ iris_ctree
 # 단계 4: 분류모델 플로팅
 # 단계 4-1: 간단한 형식으로 시각화 
 plot(iris_ctree, type = "simple")
+# 유의검정 p값은 python에서는 안나옴..ㅋ
+# 그래프를 봤을때 speicies 결정할때 petal.length가 제일 중요하다
+# 중요도 순서 파악
+# 디시전트리는 데이터의 양에 민감함 -> 오버피팅
 
 # 단계 4-2: 의사결정 트리로 플로팅
 plot(iris_ctree)
@@ -152,197 +117,46 @@ plot(iris_ctree)
 # 단계 5: 분류모델 평가
 # 단계 5-1: 모델의 예측치 생성과 혼돈 매트릭스 생성
 pred <- predict(iris_ctree, test)
-
 table(pred, test$Species)
-
-# 단계 5-2: 분류 정확도 - 96%
-(14 + 16 + 13) / nrow(test)
-
-
-# 실습: K겹 교차 검정 샘플링으로 분류 분석하기 
-# 단계 1: K겹 교차 검정을 위한 샘플링 - 3겹, 2회 반복
-library(cvTools)
-cross <- cvFolds(nrow(iris), K = 3, R = 2)
-
-# 단계 2: K겹 교차 검정 데잍 보기 
-str(cross)
-cross
-length(cross$which)
-dim(cross$subsets)
-table(cross$which)
+# 매칭 안되는거 -> 오답수
+# pred         setosa versicolor virginica
+# setosa         10          0         0
+# versicolor     "2"        14        "1"
+# virginica       0        "1"        17
 
 
-# 단계 3: K겹 교차 검정 수행
-R = 1:2
-K = 1:3
-CNT = 0
-ACC <- numeric()
-
-for(r in R) {
-  cat('\n R = ', r, '\n')
-  for(k in K) {
-    
-    datas_ids <- cross$subsets[cross$which == k, r]
-    test <- iris[datas_ids, ]
-    cat('test : ', nrow(test), '\n')
-    
-    formual <- Species ~ .
-    train <- iris[-datas_ids, ]
-    cat('train : ', nrow(train), '\n')
-    
-    model <- ctree(Species ~ ., data = train)
-    pred <- predict(model, test)
-    t <- table(pred, test$Species)
-    print(t)
-    
-    CNT <- CNT + 1
-    ACC[CNT] <- (t[1, 1] + t[2, 2] + t[3, 3]) / sum(t)
-  }
-  
-}
-
-CNT
+# 단계 5-2: 분류 정확도
+(10 + 14 + 17) / nrow(test)
+# 맞는걸 맞다고 한거, 틀린걸 틀렸다고 한거
+# 맞는걸 틀렸다고 한거, 틀린걸 맞다고 한거
+# 혼돈매트릭스
+# (예측)     T   F
+#  (실)  T  a   b
+#  (제)  F  c   d
+# 분류평가표에서 제일 먼저 볼 것 : F1값
+# 정밀도(precision) : TRUE라고 "예측"한 것 중에 "실제" TRUE인 것의 비율 (a/a+c) : 예측을 잘했네
+# 재현율(recall) : "실제" TRUE인것 중에서 TRUE라고 "예측"한 것(a/a+b) : 실제값이랑 잘 맞네(분류가 잘됐네) -> 과적합
+# 정확도 : a + d / a + b+ c+ d
+# F1
 
 
-# 단계 4: 교차 검정 모델 평가
-ACC
-length(ACC)
-
-result_acc <- mean(ACC, na.rm = T)
-result_acc
-
-
-# 실습: 고속도로 주행거리에 미치는 영향변수 보기 
-# 단계 1: 패키지 설치 및 로딩 
-install.packages("ggplot2")
-library(ggplot2)
-data(mpg)
-
-# 단계 2: 학습데이터와 검정데이터 생성
-t <- sample(1:nrow(mpg), 120)
-train <- mpg[-t, ]
-test <- mpg[t, ]
-dim(train)
-dim(test)
-
-# 단계 3: formula 작성과 분류모델 생성
-test$drv <- factor(test$drv)
-formula <- hwy ~ displ + cyl + drv
-tree_model <- ctree(formula, data = test)
-plot(tree_model)
-
-
-# 실습: AdultUCI 데잍 셋을 이용한 분류분석
-# 단계 1: 패키지 설치 및 데이터 셋 구조 보기 
-install.packages("arules")
-library(arules)
-data(AdultUCI)
-str(AdultUCI)
-names(AdultUCI)
-
-# 단계 2: 데이터 샘플링 - 10,000개 관측치 ㅣ선택
-set.seed(1234)
-choice <- sample(1:nrow(AdultUCI), 10000)
-choice
-
-adult.df <- AdultUCI[choice, ]
-str(adult.df)
-
-# 단계 3: 변수 추출 및 데이터프레임 생성
-# 단계 3-1: 변수 추출
-capital <- adult.df$`capital-gain`
-hours <- adult.df$`hours-per-week`
-education <- adult.df$`education-num`
-race <- adult.df$race
-age <- adult.df$age
-income <- adult.df$income
-
-# 단계 3-2: 데이터프레임 생성
-adult_df <- data.frame(capital = capital, age = age, race = race, 
-                       hours = hours, education = education, income = income)
-str(adult_df)
-
-# 단계 4: formula 생성 - 자본이득(capital)에 영향을 미치는 변수
-formula <- capital ~ income + education + hours + race + age
-
-# 단계 5: 분류모델 생성 및 예측
-adult_ctree <- ctree(formula, data = adult_df)
-adult_ctree
-
-# 단계 6: 분류모델 시각화 
-plot(adult_ctree)
-
-# 단계 7: 자본이득(capital) 요약통계량 보기 
-adultResult <- subset(adult_df, 
-                      adult_df$income == 'large' &
-                        adult_df$education > 14)
-length(adultResult$education)
-summary(adultResult$capital)
-
-boxplot(adultResult$capital)
-
-
-# 실습: rpart() 함수를 이용한 의사결정 트리 생성
-# 단계 1: 패키지 설치 및 로딩
-install.packages("rpart")
-library(rpart)
-install.packages("rpart.plot")
-library(rpart.plot)
-
-# 단계 2: 데잍 로딩
-data(iris)
-
-# 단계 3: rpart() 함수를 이용한 분류분석
-rpart_model <- rpart(Species ~ ., data = iris)
-rpart_model
-
-# 단계 4: 분류분석 시각화
-rpart.plot(rpart_model)
-
-
-
-# 실습: 날씨 데이터를 이용하여 비(rain) 유무 예측
-# 단계 1: 데이터 가져오기 
-weather = read.csv("C:/Rwork/Part-IV/weather.csv", header = TRUE)
-
-# 단계 2: 데이터 특성 보기 
-str(weather)
-head(weather)
-
-# 단계 3: 분류분석 데이터 가져오기 
-weather.df <- rpart(RainTomorrow ~ ., data = weather[ , c(-1, -14)], cp = 0.01)
-
-
-# 단계 4: 분류분석 시각화 
-rpart.plot(weather.df)
-
-# 단계 5: 예측치 생성과 코딩 변경
-# 단계 5-1: 예측치 생성
-weather_pred <- predict(weather.df, weather)
-weather_pred
-
-# 단계 5-2: y의 범주로 코딩 변환 - Yes(0.5이상), No(0.5미만)
-weather_pred2 <- ifelse(weather_pred[ , 2] >= 0.5, 'Yes', 'No')
-
-# 단계 6: 모델 평가 
-table(weather_pred2, weather$RainTomorrow)
-(278 + 53) / nrow(weather)
-
-
-
+# 디시전 트리는 데이터에 민감하다 => 개선
+##############################################
+### 2. 랜덤 포레스트
 # 실습: 랜덤 포레스트 기본 모델 생성
 # 단계 1: 패키지 설치 및 데이터 셋 가져오기 
 install.packages("randomForest")
 library(randomForest)
 data(iris)
 
-# 단계 2: 랜덤 포레스트 모데 ㄹ생성
+# 단계 2: 랜덤 포레스트 모델 생성
+# 1번모델 : Species 외에 나머지 다써라! 
 model <- randomForest(Species ~ ., data = iris)
 model
 
-
-
-# 실습: 파라미터 조정 - 트리 개수 300개, 변수 개수 4개 지정  
+# 2번모델 : 나무생성
+# na값도 자체적으로 처리할 수 있다.
+# 파라미터 조정 - 트리 개수 300개, 변수 개수 4개 지정  
 model2 <- randomForest(Species ~ ., data = iris,
                        ntree = 300, mtry = 4, na.action = na.omit)
 model2
@@ -359,36 +173,9 @@ importance(model3)
 varImpPlot(model3)
 
 
-### 엔트포리(Entropy): 불확실성
-x1 <- 0.5; x2 <- 0.5 
-e1 <- -x1 * log2(x1) - x2 * log2(x2)
-e1
 
-x1 <- 0.7; x2 <- 0.3               
-e2 <- -x1 * log2(x1) - x2 * log2(x2)
-e2
-
-
-
-# 실습: ;최적의 파라미터(ntree, mtry) 찾기 
-# 단계 1: 속성값 생성
-ntree <- c(400, 500, 600)
-mtry <- c(2:4)
-param <- data.frame(n = ntree, m = mtry)
-param
-
-# 단계 2: 이중 for() 함수를 이용하여 모델 생성
-for(i in param$n) {
-  cat('ntree =', i, '\n')
-  for(j in param$m) {
-    cat('mtry =', j, '\n')
-    model_iris <- randomForest(Species ~ ., data = iris,
-                               ntree = i, mtry = j, na.action = na.omit)
-    print(model_iris)
-  }
-}
-
-
+##############################################
+#### 제일 중요한거..!!!
 # 실습: 다향 분류 xgboost 모델 생성
 # 단계 1: 패키지 설치
 install.packages("xgboost")
@@ -425,6 +212,7 @@ xgb_model <- xgboost(data = dtrain, max_depth = 2, eta = 1,
 xgb_model
 
 # 단계 7: testset 생성
+## **boost 쓸때는 반드시 matrix 생성
 test_mat <- as.matrix(test[-c(5:6)])
 dim(test_mat)
 test_lab <- test$label
@@ -436,6 +224,7 @@ pred_iris
 
 # 단계 9: confusion matrix
 table(pred_iris, test_lab)
+# F1 결과 예측하기는 쉽지 않다
 
 # 단계 10: 모델 성능평가1 - Accuracy
 (19 + 13 + 12) / length(test_lab)
